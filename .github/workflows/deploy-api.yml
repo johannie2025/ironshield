@@ -1,0 +1,60 @@
+name: Deploy API (PHP/MySQL)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "api/**"
+      - "sql/**"
+      - "signatures/**"
+  workflow_dispatch:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+      - name: PHP Lint
+        run: find api -name "*.php" -print0 | xargs -0 -n1 php -l
+
+  unit-tests:
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+      - name: Run unit tests
+        run: php tests/unit.php
+
+  deploy:
+    needs: unit-tests
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy API via SFTP to alwaysdata
+        uses: wlixcc/SFTP-Deploy-Action@v1.2.4
+        with:
+          server: ${{ secrets.ALWAYSDATA_HOST }}
+          username: ${{ secrets.ALWAYSDATA_USER }}
+          password: ${{ secrets.ALWAYSDATA_PASSWORD }}
+          port: 22
+          local_path: "./api/*"
+          remote_path: "/www/ironshield/api"
+          sftpArgs: "-o ConnectTimeout=15"
+
+      - name: Deploy signatures via SFTP to alwaysdata
+        uses: wlixcc/SFTP-Deploy-Action@v1.2.4
+        with:
+          server: ${{ secrets.ALWAYSDATA_HOST }}
+          username: ${{ secrets.ALWAYSDATA_USER }}
+          password: ${{ secrets.ALWAYSDATA_PASSWORD }}
+          port: 22
+          local_path: "./signatures/*"
+          remote_path: "/www/ironshield/signatures"
+          sftpArgs: "-o ConnectTimeout=15"
