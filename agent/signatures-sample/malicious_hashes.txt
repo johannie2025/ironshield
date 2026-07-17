@@ -1,0 +1,8 @@
+# Liste de hashes SHA-256 connus comme malveillants.
+# Une entrée par ligne. Mise à jour automatiquement par l'updater quand
+# une connexion est disponible ; reste utilisable indéfiniment hors ligne.
+# Source recommandée en production : flux CSV/texte de type MalwareBazaar
+# ou abuse.ch, synchronisés périodiquement.
+#
+# Exemple (hash factice, à remplacer par un vrai flux) :
+# e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b85

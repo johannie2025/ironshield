@@ -1,0 +1,41 @@
+[package]
+name = "ironshield-agent"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+shared = { path = "../shared" }
+windows = { version = "0.58", features = [
+    "Win32_Storage_FileSystem",
+    "Win32_Foundation",
+    "Win32_System_IO",
+    "Win32_System_Threading",
+    "Win32_Security",
+    "Win32_System_SystemInformation",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_System_LibraryLoader",
+    "Win32_Devices_DeviceAndDriverInstallation",
+    "Win32_System_Console",
+] }
+sha2 = "0.10"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs", "time", "sync", "process"] }
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+directories = "5"
+toml = "0.8"
+rusqlite = { version = "0.31", features = ["bundled"] }
+yara-x = "0.9"
+aes-gcm = "0.10"
+rand = "0.8"
+walkdir = "2"
+
+[[bin]]
+name = "ironshield-agent"
+path = "src/main.rs"
+
+[target.'cfg(windows)'.dependencies]
+winreg = "0.52"
