@@ -1,0 +1,23 @@
+name: E2E Tests
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * *" # quotidien, 06:00 UTC
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Run end-to-end suite
+        env:
+          E2E_API_BASE: ${{ secrets.E2E_API_BASE }}
+          E2E_LICENSE_KEY: ${{ secrets.E2E_LICENSE_KEY }}
+        run: |
+          chmod +x tests/e2e.sh
+          ./tests/e2e.sh
