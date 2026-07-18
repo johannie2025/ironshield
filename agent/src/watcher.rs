@@ -94,7 +94,7 @@ fn parse_notifications(buffer: &[u8], base_dir: &Path, tx: &UnboundedSender<File
         };
 
         let name_len = info.FileNameLength as usize / 2;
-        let name_ptr = unsafe { info.FileName.as_ptr() };
+        let name_ptr = info.FileName.as_ptr();
         let name_slice = unsafe { std::slice::from_raw_parts(name_ptr, name_len) };
         let name = String::from_utf16_lossy(name_slice);
         let full_path = base_dir.join(&name);
