@@ -20,8 +20,8 @@ jobs:
 
       - name: Install WiX
         run: |
-          dotnet tool install --global wix
-          wix extension add WixToolset.Util.wixext
+          dotnet tool install --global wix --version 5.0.2
+          wix extension add WixToolset.Util.wixext/5.0.2
 
       - name: Resolve version and tags
         id: vars
