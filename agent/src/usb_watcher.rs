@@ -31,7 +31,13 @@ pub fn watch_usb_insertions(tx: UnboundedSender<std::path::PathBuf>) {
 
 #[cfg(windows)]
 fn list_removable_drives() -> Vec<std::path::PathBuf> {
-    use windows::Win32::Storage::FileSystem::{GetDriveTypeW, DRIVE_REMOVABLE};
+    use windows::Win32::Storage::FileSystem::GetDriveTypeW;
+
+    // Valeur Win32 standard et stable (documentée par Microsoft), utilisée
+    // directement plutôt que la constante de la crate `windows` : son nom
+    // exact / sa présence varie selon les versions de `windows-rs`, alors
+    // que la valeur numérique elle-même ne change jamais.
+    const DRIVE_REMOVABLE: u32 = 2;
 
     let mut drives = Vec::new();
     for letter in b'A'..=b'Z' {
