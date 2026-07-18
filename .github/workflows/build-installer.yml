@@ -23,35 +23,49 @@ jobs:
           dotnet tool install --global wix
           wix extension add WixToolset.Util.wixext
 
+      - name: Resolve version and tags
+        id: vars
+        shell: pwsh
+        run: |
+          $agentTag = "${{ github.event.inputs.agent_tag }}"
+          if ([string]::IsNullOrEmpty($agentTag)) { $agentTag = "agent-latest" }
+          $guiTag = "${{ github.event.inputs.gui_tag }}"
+          if ([string]::IsNullOrEmpty($guiTag)) { $guiTag = "gui-latest" }
+
+          $version = $agentTag -replace '^agent-v', ''
+          if ([string]::IsNullOrEmpty($version) -or $version -eq $agentTag) { $version = "0.1.0" }
+
+          "agent_tag=$agentTag" >> $env:GITHUB_OUTPUT
+          "gui_tag=$guiTag" >> $env:GITHUB_OUTPUT
+          "version=$version" >> $env:GITHUB_OUTPUT
+
       - name: Download agent release assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ github.event.inputs.agent_tag || 'agent-latest' }}
         run: |
           mkdir dl-agent
-          gh release download "$env:TAG" --repo "$env:GITHUB_REPOSITORY" --dir dl-agent --pattern "*.exe" --pattern "SHA256SUMS.txt" --pattern "VERSION"
+          gh release download "${{ steps.vars.outputs.agent_tag }}" --repo "$env:GITHUB_REPOSITORY" --dir dl-agent --pattern "*.exe" --pattern "SHA256SUMS.txt" --pattern "VERSION"
 
       - name: Download GUI release assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ github.event.inputs.gui_tag || 'gui-latest' }}
         run: |
           mkdir dl-gui
-          gh release download "$env:TAG" --repo "$env:GITHUB_REPOSITORY" --dir dl-gui --pattern "*.msi"
+          gh release download "${{ steps.vars.outputs.gui_tag }}" --repo "$env:GITHUB_REPOSITORY" --dir dl-gui --pattern "*.msi"
 
       - name: Extract GUI exe from MSI
-        shell: powershell
+        shell: pwsh
         run: |
           $msi = Get-ChildItem dl-gui\*.msi | Select-Object -First 1
           msiexec /a "$($msi.FullName)" /qn TARGETDIR="${PWD}\dl-gui-extracted"
           Copy-Item "dl-gui-extracted\**\ironshield-gui.exe" "dl-gui\ironshield-gui.exe" -Recurse -Force
 
       - name: Build unified MSI
-        shell: powershell
+        shell: pwsh
         run: |
           wix build installer/src/Product.wxs `
             -ext WixToolset.Util.wixext `
-            -d ProductVersion="${{ github.event.inputs.agent_tag && github.event.inputs.agent_tag.Replace('agent-v','') || '0.1.0' }}" `
+            -d ProductVersion="${{ steps.vars.outputs.version }}" `
             -d AgentExePath="dl-agent\ironshield-agent.exe" `
             -d UpdaterExePath="dl-agent\ironshield-updater.exe" `
             -d Sha256SumsPath="dl-agent\SHA256SUMS.txt" `
