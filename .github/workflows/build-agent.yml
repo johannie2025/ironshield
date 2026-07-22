@@ -1,118 +1,96 @@
-name: Build Unified Installer
+name: Build Agent + Updater (Windows)
 
 on:
   push:
-    tags: ["setup-v*"]
+    branches: [main]
+    tags: ["agent-v*"]
+    paths:
+      - "agent/**"
+      - "updater/**"
+      - "shared/**"
+      - "Cargo.toml"
+  pull_request:
+    branches: [main]
   workflow_dispatch:
-    inputs:
-      agent_tag:
-        description: "Tag de release agent à embarquer (ex: agent-v0.1.0)"
-        required: true
-      gui_tag:
-        description: "Tag de release GUI à embarquer (ex: gui-v0.1.0)"
-        required: true
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
-  build-installer:
+  build:
     runs-on: windows-latest
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install WiX
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Cache cargo registry & target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-agent-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-agent-
+
+      - name: Check formatting (non-bloquant tant que le code n'a pas encore été formaté une première fois)
+        run: cargo fmt --check --package ironshield-agent --package ironshield-updater --package shared
+        continue-on-error: true
+
+      - name: Clippy (avertissements non-bloquants pour ce premier passage — à durcir une fois le code stabilisé)
+        run: cargo clippy --package ironshield-agent --package ironshield-updater --package shared --release --target x86_64-pc-windows-msvc -- -D warnings
+        continue-on-error: true
+
+      - name: Test
+        run: cargo test --package ironshield-agent --package ironshield-updater --package shared --release --target x86_64-pc-windows-msvc
+
+      - name: Build release binaries
         run: |
-          dotnet tool install --global wix --version 5.0.2
-          wix extension add WixToolset.Util.wixext/5.0.2
+          cargo build --package ironshield-agent --release --target x86_64-pc-windows-msvc
+          cargo build --package ironshield-updater --release --target x86_64-pc-windows-msvc
 
-      - name: Resolve version and tags
-        id: vars
-        shell: pwsh
+      - name: Generate checksums and VERSION
+        shell: bash
         run: |
-          $agentTag = "${{ github.event.inputs.agent_tag }}"
-          if ([string]::IsNullOrEmpty($agentTag)) { $agentTag = "agent-latest" }
-          $guiTag = "${{ github.event.inputs.gui_tag }}"
-          if ([string]::IsNullOrEmpty($guiTag)) { $guiTag = "gui-latest" }
+          cd target/x86_64-pc-windows-msvc/release
+          mkdir -p signatures
+          cp -r "${GITHUB_WORKSPACE}/agent/signatures-sample/"* signatures/
+          sha256sum ironshield-agent.exe ironshield-updater.exe > SHA256SUMS.txt
+          echo "${GITHUB_REF_NAME:-agent-v0.0.0-dev}" > VERSION
+          cat SHA256SUMS.txt
 
-          $version = $agentTag -replace '^agent-v', ''
-          if ([string]::IsNullOrEmpty($version) -or $version -eq $agentTag) { $version = "0.1.0" }
-
-          "agent_tag=$agentTag" >> $env:GITHUB_OUTPUT
-          "gui_tag=$guiTag" >> $env:GITHUB_OUTPUT
-          "version=$version" >> $env:GITHUB_OUTPUT
-
-      - name: Download agent release assets
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          mkdir dl-agent
-          gh release download "${{ steps.vars.outputs.agent_tag }}" --repo "$env:GITHUB_REPOSITORY" --dir dl-agent --pattern "*.exe" --pattern "SHA256SUMS.txt" --pattern "VERSION"
-
-      - name: Download GUI release assets
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          mkdir dl-gui
-          gh release download "${{ steps.vars.outputs.gui_tag }}" --repo "$env:GITHUB_REPOSITORY" --dir dl-gui --pattern "*.msi"
-
-      - name: Extract GUI exe from MSI
-        shell: pwsh
-        run: |
-          $msi = Get-ChildItem dl-gui\*.msi | Select-Object -First 1
-          if (-not $msi) {
-            Write-Error "Aucun fichier .msi trouvé dans dl-gui\"
-            exit 1
-          }
-
-          $extractDir = Join-Path (Get-Location) "dl-gui-extracted"
-          New-Item -ItemType Directory -Force -Path $extractDir | Out-Null
-
-          # msiexec.exe rend la main immédiatement (il délègue à un service
-          # Windows Installer) : sans -Wait, les étapes suivantes s'exécutent
-          # avant que l'extraction ne soit terminée. C'était la cause du bug.
-          $process = Start-Process -FilePath "msiexec.exe" `
-            -ArgumentList "/a", "`"$($msi.FullName)`"", "/qn", "TARGETDIR=`"$extractDir`"" `
-            -Wait -PassThru -NoNewWindow
-
-          if ($process.ExitCode -ne 0) {
-            Write-Error "msiexec a échoué avec le code $($process.ExitCode)"
-            exit 1
-          }
-
-          $exePath = Get-ChildItem -Path $extractDir -Filter "ironshield-gui.exe" -Recurse | Select-Object -First 1
-          if (-not $exePath) {
-            Write-Error "ironshield-gui.exe introuvable après extraction du MSI"
-            Get-ChildItem -Path $extractDir -Recurse | ForEach-Object { Write-Host $_.FullName }
-            exit 1
-          }
-
-          Copy-Item $exePath.FullName "dl-gui\ironshield-gui.exe" -Force
-          Write-Host "GUI exe extrait avec succès: $($exePath.FullName)"
-
-      - name: Build unified MSI
-        shell: pwsh
-        run: |
-          wix build installer/src/Product.wxs `
-            -ext WixToolset.Util.wixext `
-            -d ProductVersion="${{ steps.vars.outputs.version }}" `
-            -d AgentExePath="dl-agent\ironshield-agent.exe" `
-            -d UpdaterExePath="dl-agent\ironshield-updater.exe" `
-            -d Sha256SumsPath="dl-agent\SHA256SUMS.txt" `
-            -d VersionPath="dl-agent\VERSION" `
-            -d GuiExePath="dl-gui\ironshield-gui.exe" `
-            -d RegisterTasksScriptPath="installer\src\register-tasks.cmd" `
-            -d UnregisterTasksScriptPath="installer\src\unregister-tasks.cmd" `
-            -o IronShieldFIM-Setup.msi
-
-      - name: Upload unified installer
+      - name: Upload agent artifact
         uses: actions/upload-artifact@v4
         with:
-          name: IronShieldFIM-Setup
-          path: IronShieldFIM-Setup.msi
+          name: ironshield-agent-windows-x64
+          path: |
+            target/x86_64-pc-windows-msvc/release/ironshield-agent.exe
+            target/x86_64-pc-windows-msvc/release/ironshield-updater.exe
+            target/x86_64-pc-windows-msvc/release/SHA256SUMS.txt
+            target/x86_64-pc-windows-msvc/release/VERSION
+            target/x86_64-pc-windows-msvc/release/signatures/**
           if-no-files-found: error
 
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/agent-v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: ironshield-agent-windows-x64
       - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/setup-v')
         uses: softprops/action-gh-release@v2
         with:
-          files: IronShieldFIM-Setup.msi
+          files: |
+            ironshield-agent.exe
+            ironshield-updater.exe
+            SHA256SUMS.txt
+            VERSION
