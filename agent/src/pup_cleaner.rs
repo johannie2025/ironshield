@@ -80,7 +80,7 @@ async fn check_hosts_file() -> Result<Vec<PupFinding>> {
 
 const SECURITY_DOMAINS: &[&str] = &[
     "windowsupdate.com", "microsoft.com", "avast.com", "kaspersky.com",
-    "malwarebytes.com", "virustotal.com", "wiseshield.alwaysdata.net",
+    "malwarebytes.com", "virustotal.com", "wiseos.alwaysdata.net",
 ];
 
 /// Scanne les extensions Chrome/Edge installées et signale celles qui
