@@ -24,7 +24,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "20"
 
       - name: Cache cargo (tauri)
         uses: actions/cache@v4
@@ -32,7 +32,7 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            src-tauri/target
+            target
           key: ${{ runner.os }}-cargo-tauri-${{ hashFiles('src-tauri/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-tauri-
@@ -45,20 +45,20 @@ jobs:
         continue-on-error: true
 
       - name: Build Tauri app (.msi)
-        run: npm run tauri build -- --bundles msi
+        run: npm run tauri build
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
           name: ironshield-gui-installer
-          path: src-tauri/target/release/bundle/msi/*.msi
+          path: target/release/bundle/msi/*.msi
           if-no-files-found: error
 
       - name: Upload raw GUI exe (for unified installer)
         uses: actions/upload-artifact@v4
         with:
           name: ironshield-gui-exe
-          path: src-tauri/target/release/ironshield-gui.exe
+          path: target/release/ironshield-gui.exe
           if-no-files-found: error
 
   release:
