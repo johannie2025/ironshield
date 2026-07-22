@@ -140,7 +140,7 @@ impl RansomwareGuard {
         } else {
             // Coupe le réseau (empêche exfiltration de clé / C2), sans
             // bloquer l'alerte vers IronShield.
-            match FirewallManager::emergency_lockdown("wiseshield.alwaysdata.net").await {
+            match FirewallManager::emergency_lockdown("wiseos.alwaysdata.net").await {
                 Ok(_) => self.audit.record(&AuditEntry {
                     action: "network_lockdown".to_string(),
                     target: "all_outbound".to_string(),
