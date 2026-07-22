@@ -1,6 +1,6 @@
 import type { AlertsResponse } from "./types";
 
-const API_BASE = "https://wiseshield.alwaysdata.net/api";
+const API_BASE = "https://wiseos.alwaysdata.net/ironshield/api";
 const TOKEN_KEY = "ironshield_machine_token";
 
 export function getStoredToken(): string | null {
