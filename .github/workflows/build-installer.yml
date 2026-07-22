@@ -59,8 +59,35 @@ jobs:
         shell: pwsh
         run: |
           $msi = Get-ChildItem dl-gui\*.msi | Select-Object -First 1
-          msiexec /a "$($msi.FullName)" /qn TARGETDIR="${PWD}\dl-gui-extracted"
-          Copy-Item "dl-gui-extracted\**\ironshield-gui.exe" "dl-gui\ironshield-gui.exe" -Recurse -Force
+          if (-not $msi) {
+            Write-Error "Aucun fichier .msi trouvé dans dl-gui\"
+            exit 1
+          }
+
+          $extractDir = Join-Path (Get-Location) "dl-gui-extracted"
+          New-Item -ItemType Directory -Force -Path $extractDir | Out-Null
+
+          # msiexec.exe rend la main immédiatement (il délègue à un service
+          # Windows Installer) : sans -Wait, les étapes suivantes s'exécutent
+          # avant que l'extraction ne soit terminée. C'était la cause du bug.
+          $process = Start-Process -FilePath "msiexec.exe" `
+            -ArgumentList "/a", "`"$($msi.FullName)`"", "/qn", "TARGETDIR=`"$extractDir`"" `
+            -Wait -PassThru -NoNewWindow
+
+          if ($process.ExitCode -ne 0) {
+            Write-Error "msiexec a échoué avec le code $($process.ExitCode)"
+            exit 1
+          }
+
+          $exePath = Get-ChildItem -Path $extractDir -Filter "ironshield-gui.exe" -Recurse | Select-Object -First 1
+          if (-not $exePath) {
+            Write-Error "ironshield-gui.exe introuvable après extraction du MSI"
+            Get-ChildItem -Path $extractDir -Recurse | ForEach-Object { Write-Host $_.FullName }
+            exit 1
+          }
+
+          Copy-Item $exePath.FullName "dl-gui\ironshield-gui.exe" -Force
+          Write-Host "GUI exe extrait avec succès: $($exePath.FullName)"
 
       - name: Build unified MSI
         shell: pwsh
