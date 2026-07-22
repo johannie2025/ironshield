@@ -77,7 +77,7 @@ fn default_kill_window() -> u64 {
 impl Default for AgentConfig {
     fn default() -> Self {
         Self {
-            api_base_url: "https://wiseshield.alwaysdata.net/api".to_string(),
+            api_base_url: "https://wiseos.alwaysdata.net/ironshield/api".to_string(),
             watched_paths: vec![
                 r"C:\Windows\System32\drivers".to_string(),
                 r"C:\Program Files".to_string(),
