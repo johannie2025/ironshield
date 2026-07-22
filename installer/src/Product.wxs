@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+
+  <Package Name="IronShield FIM"
+           Manufacturer="Wise Design"
+           Version="$(var.ProductVersion)"
+           UpgradeCode="4E2B9E2F-8C1D-4E1B-9B2E-1A6F0C7D5A21"
+           Scope="perMachine">
+
+    <MajorUpgrade DowngradeErrorMessage="Une version plus récente d'IronShield FIM est déjà installée." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="IronShield FIM">
+        <Directory Id="AGENTDIR" Name="agent" />
+        <Directory Id="GUIDIR" Name="gui" />
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ShortcutFolder" Name="IronShield FIM" />
+    </StandardDirectory>
+
+    <!-- Binaires de l'agent + de l'updater -->
+    <ComponentGroup Id="AgentComponents" Directory="AGENTDIR">
+      <Component Id="AgentExe" Guid="*">
+        <File Id="AgentExeFile" Source="$(var.AgentExePath)" KeyPath="yes" />
+      </Component>
+      <Component Id="UpdaterExe" Guid="*">
+        <File Id="UpdaterExeFile" Source="$(var.UpdaterExePath)" KeyPath="yes" />
+      </Component>
+      <Component Id="ChecksumsFile" Guid="*">
+        <File Id="Sha256SumsFile" Source="$(var.Sha256SumsPath)" KeyPath="yes" />
+      </Component>
+      <Component Id="VersionFile" Guid="*">
+        <File Id="VersionFileRef" Source="$(var.VersionPath)" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- Interface graphique (Tauri) -->
+    <ComponentGroup Id="GuiComponents" Directory="GUIDIR">
+      <Component Id="GuiExe" Guid="*">
+        <File Id="GuiExeFile" Source="$(var.GuiExePath)" KeyPath="yes" />
+        <Shortcut Id="GuiShortcut"
+                  Directory="ShortcutFolder"
+                  Name="IronShield FIM"
+                  WorkingDirectory="GUIDIR"
+                  Advertise="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- Marqueur de registre pour le suivi d'installation des tâches planifiées -->
+    <Component Id="ScheduledTaskMarker" Directory="AGENTDIR" Guid="*">
+      <RegistryValue Root="HKLM"
+                      Key="Software\WiseDesign\IronShieldFIM"
+                      Name="ScheduledTasksInstalled"
+                      Type="integer"
+                      Value="1"
+                      KeyPath="yes" />
+    </Component>
+
+    <!--
+      Enregistrement des tâches planifiées via des scripts .cmd embarqués
+      (plutôt que des commandes schtasks.exe construites en ligne dans le
+      XML) : évite les problèmes d'échappement de guillemets imbriqués qui
+      faisaient échouer l'installeur ("a program required for this install
+      to complete could not be run"). Le script se localise lui-même via
+      %~dp0, donc pas besoin de faire transiter [AGENTDIR] par
+      CustomActionData pour les actions différées.
+    -->
+    <Component Id="RegisterTasksScript" Directory="AGENTDIR" Guid="*">
+      <File Id="RegisterTasksScriptFile" Source="$(var.RegisterTasksScriptPath)" KeyPath="yes" />
+    </Component>
+    <Component Id="UnregisterTasksScript" Directory="AGENTDIR" Guid="*">
+      <File Id="UnregisterTasksScriptFile" Source="$(var.UnregisterTasksScriptPath)" KeyPath="yes" />
+    </Component>
+
+    <CustomAction Id="RegisterTasks"
+                  ExeCommand="cmd.exe /c &quot;[#RegisterTasksScriptFile]&quot;"
+                  Directory="AGENTDIR"
+                  Execute="immediate"
+                  Impersonate="no"
+                  Return="check" />
+
+    <CustomAction Id="UnregisterTasks"
+                  ExeCommand="cmd.exe /c &quot;[#UnregisterTasksScriptFile]&quot;"
+                  Directory="AGENTDIR"
+                  Execute="immediate"
+                  Impersonate="no"
+                  Return="ignore" />
+
+    <InstallExecuteSequence>
+      <Custom Action="RegisterTasks" After="InstallFiles" Condition="NOT Installed" />
+      <Custom Action="UnregisterTasks" Before="RemoveFiles" Condition="Installed AND (REMOVE=&quot;ALL&quot;)" />
+    </InstallExecuteSequence>
+
+    <Feature Id="MainFeature" Title="IronShield FIM" Level="1">
+      <ComponentGroupRef Id="AgentComponents" />
+      <ComponentGroupRef Id="GuiComponents" />
+      <ComponentRef Id="ScheduledTaskMarker" />
+      <ComponentRef Id="RegisterTasksScript" />
+      <ComponentRef Id="UnregisterTasksScript" />
+    </Feature>
+
+  </Package>
+</Wix>
