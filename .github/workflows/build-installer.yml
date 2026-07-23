@@ -100,6 +100,8 @@ jobs:
             -d Sha256SumsPath="dl-agent\SHA256SUMS.txt" `
             -d VersionPath="dl-agent\VERSION" `
             -d GuiExePath="dl-gui\ironshield-gui.exe" `
+            -d RegisterTasksScriptPath="installer\src\register-tasks.cmd" `
+            -d UnregisterTasksScriptPath="installer\src\unregister-tasks.cmd" `
             -o IronShieldFIM-Setup.msi
 
       - name: Upload unified installer
