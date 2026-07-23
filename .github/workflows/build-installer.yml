@@ -102,6 +102,7 @@ jobs:
             -d GuiExePath="dl-gui\ironshield-gui.exe" `
             -d RegisterTasksScriptPath="installer\src\register-tasks.cmd" `
             -d UnregisterTasksScriptPath="installer\src\unregister-tasks.cmd" `
+            -d PostInstallReadmePath="installer\src\POST-INSTALL.txt" `
             -o IronShieldFIM-Setup.msi
 
       - name: Upload unified installer

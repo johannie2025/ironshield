@@ -1,0 +1,23 @@
+IronShield FIM — Après installation
+=====================================
+
+L'installeur a copié les fichiers mais N'A PAS encore activé la
+surveillance en continu. Une dernière étape manuelle est nécessaire :
+
+1. Ouvrez le dossier d'installation :
+   C:\Program Files\IronShield FIM\agent\
+
+2. Clic droit sur "register-tasks.cmd" > "Exécuter en tant qu'administrateur"
+
+3. Une fenêtre noire s'ouvre brièvement et se ferme : c'est normal, ça
+   signifie que les deux tâches planifiées Windows ont été créées :
+   - IronShieldFIM-Agent   (surveillance en continu, démarre avec Windows)
+   - IronShieldFIM-Updater (vérification des mises à jour toutes les 6h)
+
+4. Pour vérifier que ça a fonctionné, ouvrez le Planificateur de tâches
+   Windows (recherchez "Planificateur de tâches" dans le menu Démarrer)
+   et confirmez que les deux tâches apparaissent dans la bibliothèque.
+
+Pour désinstaller proprement (avant ou après avoir désinstallé via
+"Programmes et fonctionnalités"), exécutez de la même façon
+"unregister-tasks.cmd" en tant qu'administrateur.

@@ -1,0 +1,17 @@
+# Rust
+/target/
+**/target/
+Cargo.lock
+
+# Node / Vite / Tauri
+node_modules/
+dist/
+src-tauri/target/
+
+# Divers
+*.log
+.env
+.DS_Store
+*.msi
+*.exe
+!installer/**

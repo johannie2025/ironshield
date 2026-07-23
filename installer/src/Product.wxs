@@ -49,50 +49,39 @@
       </Component>
     </ComponentGroup>
 
-    <!-- Marqueur de registre pour le suivi d'installation des tâches planifiées -->
+    <!-- Marqueur de registre : confirme que l'installation des fichiers a
+         réussi. L'enregistrement des tâches planifiées se fait via une
+         étape manuelle (register-tasks.cmd, à exécuter en administrateur
+         après installation) plutôt que par CustomAction MSI automatique :
+         plusieurs tentatives de CustomAction (schtasks.exe en ligne, puis
+         scripts .cmd via cmd.exe) ont échoué avec l'erreur générique MSI
+         "a program required for this install to complete could not be
+         run" sans qu'il soit possible de diagnostiquer la cause exacte
+         sans un environnement WiX pour itérer directement. Un installeur
+         fiable avec une étape manuelle documentée est préférable à un
+         installeur qui échoue systématiquement.
+    -->
     <Component Id="ScheduledTaskMarker" Directory="AGENTDIR" Guid="*">
       <RegistryValue Root="HKLM"
                       Key="Software\WiseDesign\IronShieldFIM"
-                      Name="ScheduledTasksInstalled"
+                      Name="FilesInstalled"
                       Type="integer"
                       Value="1"
                       KeyPath="yes" />
     </Component>
 
-    <!--
-      Enregistrement des tâches planifiées via des scripts .cmd embarqués
-      (plutôt que des commandes schtasks.exe construites en ligne dans le
-      XML) : évite les problèmes d'échappement de guillemets imbriqués qui
-      faisaient échouer l'installeur ("a program required for this install
-      to complete could not be run"). Le script se localise lui-même via
-      %~dp0, donc pas besoin de faire transiter [AGENTDIR] par
-      CustomActionData pour les actions différées.
-    -->
+    <!-- Scripts embarqués : présents dans le dossier d'installation pour
+         que l'utilisateur/admin puisse les exécuter manuellement (clic
+         droit > Exécuter en tant qu'administrateur) après l'installation. -->
     <Component Id="RegisterTasksScript" Directory="AGENTDIR" Guid="*">
       <File Id="RegisterTasksScriptFile" Source="$(var.RegisterTasksScriptPath)" KeyPath="yes" />
     </Component>
     <Component Id="UnregisterTasksScript" Directory="AGENTDIR" Guid="*">
       <File Id="UnregisterTasksScriptFile" Source="$(var.UnregisterTasksScriptPath)" KeyPath="yes" />
     </Component>
-
-    <CustomAction Id="RegisterTasks"
-                  ExeCommand="cmd.exe /c &quot;[#RegisterTasksScriptFile]&quot;"
-                  Directory="AGENTDIR"
-                  Execute="immediate"
-                  Impersonate="no"
-                  Return="check" />
-
-    <CustomAction Id="UnregisterTasks"
-                  ExeCommand="cmd.exe /c &quot;[#UnregisterTasksScriptFile]&quot;"
-                  Directory="AGENTDIR"
-                  Execute="immediate"
-                  Impersonate="no"
-                  Return="ignore" />
-
-    <InstallExecuteSequence>
-      <Custom Action="RegisterTasks" After="InstallFiles" Condition="NOT Installed" />
-      <Custom Action="UnregisterTasks" Before="RemoveFiles" Condition="Installed AND (REMOVE=&quot;ALL&quot;)" />
-    </InstallExecuteSequence>
+    <Component Id="PostInstallReadme" Directory="AGENTDIR" Guid="*">
+      <File Id="PostInstallReadmeFile" Source="$(var.PostInstallReadmePath)" KeyPath="yes" />
+    </Component>
 
     <Feature Id="MainFeature" Title="IronShield FIM" Level="1">
       <ComponentGroupRef Id="AgentComponents" />
@@ -100,6 +89,7 @@
       <ComponentRef Id="ScheduledTaskMarker" />
       <ComponentRef Id="RegisterTasksScript" />
       <ComponentRef Id="UnregisterTasksScript" />
+      <ComponentRef Id="PostInstallReadme" />
     </Feature>
 
   </Package>
